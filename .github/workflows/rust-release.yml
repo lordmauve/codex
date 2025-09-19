@@ -8,6 +8,8 @@
 name: rust-release
 on:
   push:
+    branches:
+      - snapshot
     tags:
       - "rust-v*.*.*"
 
@@ -16,37 +18,38 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  tag-check:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-
-      - name: Validate tag matches Cargo.toml version
-        shell: bash
-        run: |
-          set -euo pipefail
-          echo "::group::Tag validation"
-
-          # 1. Must be a tag and match the regex
-          [[ "${GITHUB_REF_TYPE}" == "tag" ]] \
-            || { echo "❌  Not a tag push"; exit 1; }
-          [[ "${GITHUB_REF_NAME}" =~ ^rust-v[0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta)(\.[0-9]+)?)?$ ]] \
-            || { echo "❌  Tag '${GITHUB_REF_NAME}' doesn't match expected format"; exit 1; }
-
-          # 2. Extract versions
-          tag_ver="${GITHUB_REF_NAME#rust-v}"
-          cargo_ver="$(grep -m1 '^version' codex-rs/Cargo.toml \
-                        | sed -E 's/version *= *"([^"]+)".*/\1/')"
-
-          # 3. Compare
-          [[ "${tag_ver}" == "${cargo_ver}" ]] \
-            || { echo "❌  Tag ${tag_ver} ≠ Cargo.toml ${cargo_ver}"; exit 1; }
-
-          echo "✅  Tag and Cargo.toml agree (${tag_ver})"
-          echo "::endgroup::"
+  # tag-check suppressed for testing
+  # tag-check:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v5
+  #
+  #     - name: Validate tag matches Cargo.toml version
+  #       shell: bash
+  #       run: |
+  #         set -euo pipefail
+  #         echo "::group::Tag validation"
+  #
+  #         # 1. Must be a tag and match the regex
+  #         [[ "${GITHUB_REF_TYPE}" == "tag" ]] \
+  #           || { echo "❌  Not a tag push"; exit 1; }
+  #         [[ "${GITHUB_REF_NAME}" =~ ^rust-v[0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta)(\.[0-9]+)?)?$ ]] \
+  #           || { echo "❌  Tag '${GITHUB_REF_NAME}' doesn't match expected format"; exit 1; }
+  #
+  #         # 2. Extract versions
+  #         tag_ver="${GITHUB_REF_NAME#rust-v}"
+  #         cargo_ver="$(grep -m1 '^version' codex-rs/Cargo.toml \
+  #                       | sed -E 's/version *= *\"([^\"]+)\".*/\1/')"
+  #
+  #         # 3. Compare
+  #         [[ "${tag_ver}" == "${cargo_ver}" ]] \
+  #           || { echo "❌  Tag ${tag_ver} ≠ Cargo.toml ${cargo_ver}"; exit 1; }
+  #
+  #         echo "✅  Tag and Cargo.toml agree (${tag_ver})"
+  #         echo "::endgroup::"
 
   build:
-    needs: tag-check
+    # needs: tag-check  # suppressed for testing
     name: ${{ matrix.runner }} - ${{ matrix.target }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
@@ -58,22 +61,22 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - runner: macos-14
-            target: aarch64-apple-darwin
-          - runner: macos-14
-            target: x86_64-apple-darwin
+          # - runner: macos-14
+          #   target: aarch64-apple-darwin
+          # - runner: macos-14
+          #   target: x86_64-apple-darwin
           - runner: ubuntu-24.04
             target: x86_64-unknown-linux-musl
-          - runner: ubuntu-24.04
-            target: x86_64-unknown-linux-gnu
-          - runner: ubuntu-24.04-arm
-            target: aarch64-unknown-linux-musl
-          - runner: ubuntu-24.04-arm
-            target: aarch64-unknown-linux-gnu
-          - runner: windows-latest
-            target: x86_64-pc-windows-msvc
-          - runner: windows-11-arm
-            target: aarch64-pc-windows-msvc
+          # - runner: ubuntu-24.04
+          #   target: x86_64-unknown-linux-gnu
+          # - runner: ubuntu-24.04-arm
+          #   target: aarch64-unknown-linux-musl
+          # - runner: ubuntu-24.04-arm
+          #   target: aarch64-unknown-linux-gnu
+          # - runner: windows-latest
+          #   target: x86_64-pc-windows-msvc
+          # - runner: windows-11-arm
+          #   target: aarch64-pc-windows-msvc
 
     steps:
       - uses: actions/checkout@v5
@@ -194,21 +197,21 @@ jobs:
           version="${GITHUB_REF_NAME#rust-v}"
           echo "name=${version}" >> $GITHUB_OUTPUT
 
-      - name: Stage npm package
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          TMP_DIR="${RUNNER_TEMP}/npm-stage"
-          python3 codex-cli/scripts/stage_rust_release.py \
-            --release-version "${{ steps.release_name.outputs.name }}" \
-            --tmp "${TMP_DIR}"
-          mkdir -p dist/npm
-          # Produce an npm-ready tarball using `npm pack` and store it in dist/npm.
-          # We then rename it to a stable name used by our publishing script.
-          (cd "$TMP_DIR" && npm pack --pack-destination "${GITHUB_WORKSPACE}/dist/npm")
-          mv "${GITHUB_WORKSPACE}"/dist/npm/*.tgz \
-             "${GITHUB_WORKSPACE}/dist/npm/codex-npm-${{ steps.release_name.outputs.name }}.tgz"
+      # - name: Stage npm package  # suppressed for testing
+      #   env:
+      #     GH_TOKEN: ${{ github.token }}
+      #   run: |
+      #     set -euo pipefail
+      #     TMP_DIR="${RUNNER_TEMP}/npm-stage"
+      #     python3 codex-cli/scripts/stage_rust_release.py \
+      #       --release-version "${{ steps.release_name.outputs.name }}" \
+      #       --tmp "${TMP_DIR}"
+      #     mkdir -p dist/npm
+      #     # Produce an npm-ready tarball using `npm pack` and store it in dist/npm.
+      #     # We then rename it to a stable name used by our publishing script.
+      #     (cd "$TMP_DIR" && npm pack --pack-destination "${GITHUB_WORKSPACE}/dist/npm")
+      #     mv "${GITHUB_WORKSPACE}"/dist/npm/*.tgz \
+      #        "${GITHUB_WORKSPACE}/dist/npm/codex-npm-${{ steps.release_name.outputs.name }}.tgz"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -220,12 +223,12 @@ jobs:
           # (e.g. -alpha, -beta). Otherwise publish a normal release.
           prerelease: ${{ contains(steps.release_name.outputs.name, '-') }}
 
-      - uses: facebook/dotslash-publish-release@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag: ${{ github.ref_name }}
-          config: .github/dotslash-config.json
+      # - uses: facebook/dotslash-publish-release@v2  # suppressed for testing
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   with:
+      #     tag: ${{ github.ref_name }}
+      #     config: .github/dotslash-config.json
 
       - name: Sign release artifacts with sigstore
         uses: sigstore/gh-action-sigstore-python@v3.0.1
@@ -235,44 +238,45 @@ jobs:
   # Publish to npm using OIDC authentication.
   # July 31, 2025: https://github.blog/changelog/2025-07-31-npm-trusted-publishing-with-oidc-is-generally-available/
   # npm docs: https://docs.npmjs.com/trusted-publishers
-  publish-npm:
-    # Skip this step for pre-releases (alpha/beta).
-    if: ${{ !contains(needs.release.outputs.version, '-') }}
-    name: publish-npm
-    needs: release
-    runs-on: ubuntu-latest
-    permissions:
-      id-token: write # Required for OIDC
-      contents: read
-
-    steps:
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          registry-url: "https://registry.npmjs.org"
-          scope: "@openai"
-
-      # Trusted publishing requires npm CLI version 11.5.1 or later.
-      - name: Update npm
-        run: npm install -g npm@latest
-
-      - name: Download npm tarball from release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          version="${{ needs.release.outputs.version }}"
-          tag="${{ needs.release.outputs.tag }}"
-          mkdir -p dist/npm
-          gh release download "$tag" \
-            --repo "${GITHUB_REPOSITORY}" \
-            --pattern "codex-npm-${version}.tgz" \
-            --dir dist/npm
-
-      # No NODE_AUTH_TOKEN needed because we use OIDC.
-      - name: Publish to npm
-        run: npm publish "${GITHUB_WORKSPACE}/dist/npm/codex-npm-${{ needs.release.outputs.version }}.tgz"
+  # publish-npm job suppressed for testing
+  # publish-npm:
+  #   # Skip this step for pre-releases (alpha/beta).
+  #   if: ${{ !contains(needs.release.outputs.version, '-') }}
+  #   name: publish-npm
+  #   needs: release
+  #   runs-on: ubuntu-latest
+  #   permissions:
+  #     id-token: write # Required for OIDC
+  #     contents: read
+  #
+  #   steps:
+  #     - name: Setup Node.js
+  #       uses: actions/setup-node@v5
+  #       with:
+  #         node-version: 22
+  #         registry-url: "https://registry.npmjs.org"
+  #         scope: "@openai"
+  #
+  #     # Trusted publishing requires npm CLI version 11.5.1 or later.
+  #     - name: Update npm
+  #       run: npm install -g npm@latest
+  #
+  #     - name: Download npm tarball from release
+  #       env:
+  #         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #       run: |
+  #         set -euo pipefail
+  #         version="${{ needs.release.outputs.version }}"
+  #         tag="${{ needs.release.outputs.tag }}"
+  #         mkdir -p dist/npm
+  #         gh release download "$tag" \
+  #           --repo "${GITHUB_REPOSITORY}" \
+  #           --pattern "codex-npm-${version}.tgz" \
+  #           --dir dist/npm
+  #
+  #     # No NODE_AUTH_TOKEN needed because we use OIDC.
+  #     - name: Publish to npm
+  #       run: npm publish "${GITHUB_WORKSPACE}/dist/npm/codex-npm-${{ needs.release.outputs.version }}.tgz"
 
   update-branch:
     name: Update latest-alpha-cli branch
