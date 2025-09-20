@@ -176,7 +176,7 @@ jobs:
           bundle_path="${{ steps.provenance.outputs.bundle-path }}"
           dest_dir="dist/${{ matrix.target }}"
           mkdir -p "${dest_dir}"
-          cp "${bundle_path}" "${dest_dir}/codex-${{ matrix.target }}.bundle.jsonl"
+          cp "${bundle_path}" "${dest_dir}/codex-${{ matrix.target }}.sigstore.json"
 
       - uses: actions/upload-artifact@v4
         with:

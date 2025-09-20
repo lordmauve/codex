@@ -11,11 +11,7 @@ npm i -g @openai/codex@native
 codex
 ```
 
-You can also download a platform-specific release directly from our [GitHub Releases](https://github.com/openai/codex/releases).
-
-### Verify downloaded releases
-
-Detailed guidance for verifying the Sigstore provenance bundles that ship with every release is available in [`docs/release-attestations.md`](./docs/release-attestations.md).
+You can also download a platform-specific release directly from our [GitHub Releases](https://github.com/openai/codex/releases). Detailed guidance for verifying the release artifacts is available in [`docs/release-attestations.md`](../docs/release-attestations.md).
 
 ## What's new in the Rust CLI
 

@@ -1,57 +1,29 @@
 # Release attestations
 
-Codex CLI releases published from this repository include Sigstore-backed [SLSA v1 build-provenance attestations](https://docs.github.com/actions/security-guides/using-artifact-attestations-to-establish-provenance-for-builds). They are generated in the release workflow with [`actions/attest-build-provenance`](https://github.com/actions/attest-build-provenance) and uploaded next to every release artifact as `codex-<target>.bundle.jsonl` files. Each bundle contains the provenance statement for the binary archives built for that target.
+Every Codex CLI release ships with Sigstore-backed [SLSA v1 build-provenance attestations](https://docs.github.com/actions/security-guides/using-artifact-attestations-to-establish-provenance-for-builds). Our release workflow (`.github/workflows/rust-release.yml`) signs each artifact with [`actions/attest-build-provenance`](https://github.com/actions/attest-build-provenance) and publishes matching `codex-<target>.sigstore.json` bundles alongside the binaries.
 
-The workflow runs on pushed `rust-v*` tags and the attestation is issued to the workflow at `.github/workflows/rust-release.yml`.
+Download the artifact you plan to run plus its `.sigstore.json` bundle, then verify the provenance with either tool below.
 
-## Online verification
+## Verify with gh CLI (recommended)
 
-Use the GitHub CLI to verify an artifact directly from a release. Replace `<target>` and `<version>` with the values for the asset you downloaded, for example `x86_64-unknown-linux-musl` and `rust-v1.2.3`:
+To verify with GitHub's `gh` CLI, run this command, replacing `{FILE}` with the name of the archive you downloaded (e.g., `codex-x86_64-unknown-linux-musl.zst`):
 
 ```bash
-# Verify a release artifact using GitHub-hosted trust roots
-gh attestation verify ./codex-<target>.tar.gz \
-  --repo openai/codex \
-  --signer-workflow github.com/openai/codex/.github/workflows/rust-release.yml@refs/tags/<version> \
-  --source-ref refs/tags/<version> \
-  --deny-self-hosted-runners
+gh attestation verify --repo openai/codex {FILE}
 ```
 
-Use `--format json` if you need machine-readable output for a policy engine, or `--predicate-type` to verify a different predicate (for SBOM attestations, for example).
+For advanced or offline workflows, refer to the [GitHub CLI attestation docs](https://cli.github.com/manual/gh_attestation_verify)
 
-## Offline or air-gapped verification
 
-You can verify the attestation in a disconnected environment by copying a Sigstore bundle and the Sigstore trust roots alongside the binary.
+## Verify with cosign
 
-1. From an online machine, download the bundle that was published with the release:
+To verify with [`cosign`](https://github.com/sigstore/cosign), download the `.sigstore.json` corresponding to the release target, replacing `{FILE}` to match name of the archive you downloaded (e.g., `codex-x86_64-unknown-linux-musl.zst`):
 
-   ```bash
-   gh release download <version> \
-     --repo openai/codex \
-     --pattern "codex-<target>.bundle.jsonl" \
-     --dir bundles
-   ```
+```bash
+cosign verify-blob-attestation codex-{FILE}.zst \
+  --bundle codex-{FILE}.sigstore.json \
+  --certificate-identity-regexp https://github.com/openai/codex/.github/workflows/rust-release.yml \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+```
 
-   The download yields `bundles/codex-<target>.bundle.jsonl`, which contains the Sigstore bundle emitted by the workflow.
-
-2. Fetch the Sigstore trust roots that correspond to the GitHub attestation services:
-
-   ```bash
-   gh attestation trusted-root > bundles/trusted_root.jsonl
-   ```
-
-   Refresh this file periodically online so your offline environment keeps up with trust-anchor rotations.
-
-3. Copy the release artifact, the downloaded bundle, the `trusted_root.jsonl` file, and a recent `gh` CLI binary into the offline environment. Then run:
-
-   ```bash
-   gh attestation verify ./codex-<target>.tar.gz \
-     --repo openai/codex \
-     --bundle codex-<target>.bundle.jsonl \
-     --custom-trusted-root trusted_root.jsonl \
-     --signer-workflow github.com/openai/codex/.github/workflows/rust-release.yml@refs/tags/<version> \
-     --source-ref refs/tags/<version> \
-     --deny-self-hosted-runners
-   ```
-
-If you store the Sigstore bundle under a different name, update the `--bundle` flag accordingly. The bundle contains all subjects for the target; `gh attestation verify` will match the digest for the artifact you provide.
+For advanced or offline workflows, the [`cosign` user guide](https://docs.sigstore.dev/cosign/overview/).
