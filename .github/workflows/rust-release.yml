@@ -53,6 +53,10 @@ jobs:
     name: ${{ matrix.runner }} - ${{ matrix.target }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write       # Required for Sigstore certificate issuance
+      attestations: write   # Required to upload attestations
     defaults:
       run:
         working-directory: codex-rs
@@ -157,6 +161,22 @@ jobs:
             # uncompressed binary to keep the directory small.
             zstd -T0 -19 --rm "$dest/$base"
           done
+
+      - name: Generate build provenance attestation
+        id: provenance
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: codex-rs/dist/${{ matrix.target }}/*
+
+      - name: Stage provenance bundle
+        if: ${{ steps.provenance.outputs.bundle-path }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          bundle_path="${{ steps.provenance.outputs.bundle-path }}"
+          dest_dir="dist/${{ matrix.target }}"
+          mkdir -p "${dest_dir}"
+          cp "${bundle_path}" "${dest_dir}/codex-${{ matrix.target }}.bundle.jsonl"
 
       - uses: actions/upload-artifact@v4
         with:
